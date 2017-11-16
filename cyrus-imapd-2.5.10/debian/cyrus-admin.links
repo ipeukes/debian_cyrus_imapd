@@ -1,0 +1,2 @@
+/usr/sbin/cyrus /usr/bin/installsieve
+/usr/sbin/cyrus /usr/bin/sieveshell

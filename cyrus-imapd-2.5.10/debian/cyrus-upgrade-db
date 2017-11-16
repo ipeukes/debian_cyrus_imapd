@@ -1,0 +1,211 @@
+#!/bin/sh
+# Cyrus database backends upgrade script
+# (C) 2001 Ondřej Surý <ondrej@sury.org>
+# distributed under the same licence as Cyrus IMAPd
+#
+# Run this script as root.  Ordinarily it will be run automatically in
+# post-install.
+
+set -e
+
+export PATH=/sbin:/usr/sbin:/bin:/usr/bin
+
+CONFIG_DIR=$(LC_ALL=C gawk '/^configdirectory:[[:blank:]]/ { print $2 }' < /etc/imapd.conf)
+
+BACKUP_DIR=/var/backup/cyrus-imapd/$(date +%Y%m%d-%H%M%S)
+
+mkdir -p $BACKUP_DIR
+
+backupdb() {
+    case "$2" in
+	skiplist|flat)
+	    cp -a $CONFIG_DIR/$1 $BACKUP_DIR
+	    ;;
+	berkeley*)
+	    cp -a $CONFIG_DIR/$1 $BACKUP_DIR
+	    if [ ! -d $BACKUP_DIR/db -a -d $CONFIG_DIR/db ]; then
+		mkdir -p $BACKUP_DIR/db
+		su cyrus -c "db$3_recover -h $CONFIG_DIR/db"
+		su cyrus -c "db$3_archive -h $CONFIG_DIR/db -l" | \
+		    while read log_file; do
+		    cp -a $CONFIG_DIR/db/$log_file $BACKUP_DIR/db
+		done
+	    fi
+	    ;;
+	quotalegacy)
+	    echo "$0: Cannot backup $2 format" 1>&2
+	    ;;
+	*)
+	    echo "$0: Unknown database format" 1>&2;
+	    return 1
+	    ;;
+    esac
+}
+
+upgradebdb() {
+    su cyrus -c "db$2_upgrade -h $CONFIG_DIR/db $CONFIG_DIR/$1"
+}
+
+checkpointbdb() {
+    su cyrus -c "db$1_checkpoint -h $CONFIG_DIR/db -1"
+    su cyrus -c "db$1_archive -h $CONFIG_DIR/db -d"
+}
+
+upgradedb() {
+    TMPFILE=$(mktemp /tmp/$1.XXXXXXXX)
+    /usr/lib/cyrus/bin/cvt_cyrusdb $CONFIG_DIR/$1 $2 $TMPFILE $3
+    rm -f $CONFIG_DIR/$1
+    mv $TMPFILE $CONFIG_DIR/$1
+    chown cyrus:mail $CONFIG_DIR/$1
+}
+
+removedb() {
+    rm -f $CONFIG_DIR/$1
+}
+
+touchdb() {
+    touch $CONFIG_DIR/$1
+    chown cyrus:mail $CONFIG_DIR/$1
+}    
+
+upgradealldb() {
+    OLD_LIST=$2
+    NEW_LIST=$1
+
+    DO_UPGRADE_BDB=
+
+    OLD_DBVERSION=$(LC_ALL=C gawk '/^DBENGINE[[:blank:]]/ { print $2 }' $OLD_LIST | sed -e "s/BerkeleyDB//")
+    NEW_DBVERSION=$(LC_ALL=C gawk '/^DBENGINE[[:blank:]]/ { print $2 }' $NEW_LIST | sed -e "s/BerkeleyDB//")
+
+    if [ "${OLD_DBVERSION}" != "${NEW_DBVERSION}" ]; then
+	DO_UPGRADE_BDB=yes
+
+	DB_UTIL_NOT_FOUND=
+    
+	if [ ! -x "/usr/bin/db${OLD_DBVERSION}_recover" ]; then
+	    echo "$0: db${OLD_DBVERSION}-util not installed" 1>&2
+	    echo "$0: please do: [sudo] apt-get install db${OLD_DBVERSION}-util" 1>&2
+	    echo "$0: and rerun the upgrade again" 1>&2
+	    DB_UTIL_NOT_FOUND=yes
+	fi
+
+	if [ ! -x "/usr/bin/db${NEW_DBVERSION}_upgrade" ]; then
+	    echo "$0: db${NEW_DBVERSION}-util not installed" 1>&2
+	    echo "$0: please do: [sudo] apt-get install db${NEW_DBVERSION}-util" 1>&2
+	    echo "$0: and rerun the upgrade again" 1>&2
+	    DB_UTIL_NOT_FOUND=yes
+	fi
+
+	if [ -n "${DB_UTIL_NOT_FOUND}" ]; then
+	    return 2
+	fi
+    fi
+
+    BERKELEY_DB_FOUND=
+    while read -r OLD_DBKEY OLD_DBVALUE ; do
+	NEW_DBVALUE=$(LC_ALL=C gawk "/^${OLD_DBKEY}[[:blank:]]/ { print \$2 }" $NEW_LIST)
+
+	if [ -z "${NEW_DBVALUE}" ]; then
+	    echo "$0: Cannot upgrade $OLD_DBKEY from $OLD_DBVALUE to empty" 1>&2
+	    return 1
+	fi
+
+	DO_UPGRADE_DB=
+	if [ "${NEW_DBVALUE}" != "${OLD_DBVALUE}" ] ; then
+	    DO_UPGRADE_DB=yes
+	fi
+
+	DBFILE=
+	case "$OLD_DBKEY" in
+	    DBENGINE)
+		continue
+		;;
+	    ANNOTATION)
+		DBFILE=annotations.db
+		;;
+	    DUPLICATE)
+		DBFILE=deliver.db
+		;;
+	    MBOX)
+		DBFILE=mailboxes.db
+		;;
+	    QUOTA|SUBS)
+		if [ -n "${DO_UPGRADE_DB}" ]; then
+		    echo "$0: Cannot upgrade ${OLD_DBKEY} database from ${OLD_DBVALUE} to ${NEW_DBVALUE} yet" 1>&2
+		    return 1
+		fi
+		;;
+	    PTS|STATUSCACHE|TLS|ZONEINFO|SEEN)
+		;;
+	    USERDENY)
+		DBFILE=user_deny.db
+		;;
+	    *)
+		echo "$0: Unknown type of DB: $OLD_DBKEY" 1>&2
+		return 1
+		;;
+	esac
+
+	# Just remove PTS, TLS and STATUSCACHE databases
+	if [ -n "${DO_UPGRADE_DB}" ]; then
+	    case "$OLD_DBKEY" in
+		PTS)
+		    removedb ptscache.db
+		    continue
+		    ;;
+		TLS)
+		    removedb tls_sessions.db
+		    touchdb tls_sessions.db
+		    continue
+		    ;;
+		STATUSCACHE)
+		    removedb statuscache.db
+		    continue
+		    ;;
+		SEEN)
+		    continue
+		    ;;
+	    esac
+	fi
+
+	# Operate only if the database exists
+	if [ -f $CONFIG_DIR/$DBFILE ]; then
+	    # Backup database if we are changing format or upgrading Berkeley DB version
+	    if [ -n "${DO_UPGRADE_DB}" -o -n "${DO_UPGRADE_BDB}" ]; then
+		backupdb $DBFILE $OLD_DBVALUE $OLD_DBVERSION;
+	    fi
+            # Upgrade Berkeley DB database format
+	    if [ -n "${DO_UPGRADE_BDB}" ]; then
+		case "${OLD_DBVALUE}" in
+		    berkeley*)
+			BERKELEY_DB_FOUND=yes
+			upgradebdb $DBFILE ${NEW_DBVERSION}
+			;;
+		esac
+	    fi
+	    # Upgrade cyrus database format
+	    if [ -n "${DO_UPGRADE_DB}" ]; then
+		upgradedb $DBFILE $OLD_DBVALUE $NEW_DBVALUE
+	    fi
+	fi
+    done < $OLD_LIST
+    # Create Berkeley DB checkpoint and remove old logs
+    if [ -n "${DO_UPGRADE_BDB}" -a -d $CONFIG_DIR/db ]; then
+	if [ -n "${BERKELEY_DB_FOUND}" ]; then
+	    # Create new checkpoint
+	    checkpointbdb $NEW_DBVERSION
+	else
+	    # Remove empty environment
+	    rm -rf $CONFIG_DIR/db
+	fi
+    fi	
+    return 0
+}
+
+upgradealldb /usr/lib/cyrus/cyrus-db-types.txt /usr/lib/cyrus/cyrus-db-types.active
+RET="$?"
+# Now set active db types to the current package
+[ "$RET" -eq "0" ] && \
+    cp -p /usr/lib/cyrus/cyrus-db-types.txt  /usr/lib/cyrus/cyrus-db-types.active
+
+exit $RET

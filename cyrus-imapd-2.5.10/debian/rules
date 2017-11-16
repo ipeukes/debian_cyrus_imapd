@@ -1,0 +1,227 @@
+#!/usr/bin/make -f
+# debian/rules for CMU Cyrus IMAP version 2.4
+# GNU copyright 1997 by Joey Hess.
+# Copyright (c) 2001,2010 by Henrique de Moraes Holschuh
+# Published under the GNU GPL license
+# Based on previous work by Michael-John Turner <mj@debian.org>,
+#			    David Parker <david@neongoat.com>
+#
+
+# see EXAMPLES in dpkg-buildflags(1) and read /usr/share/dpkg/*
+DPKG_EXPORT_BUILDFLAGS = 1
+include /usr/share/dpkg/default.mk
+
+# see FEATURE AREAS in dpkg-buildflags(1)
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+# DebHelper control
+export DH_ALWAYS_EXCLUDE=CVS:.svn:.git
+
+export DOCPKG=cyrus-doc
+export TMPPKG := $(CURDIR)/debian/tmp
+export DOCDIR := $(CURDIR)/debian/$(DOCPKG)/usr/share/doc/$(DOCPKG)
+
+export DEB_CFLAGS_MAINT_APPEND  = -Wall -Wextra -g -fno-strict-aliasing -pipe $(if $(findstring noopt,$(DEB_BUILD_OPTIONS)),-O0,-O2)
+export DEB_LDFLAGS_MAINT_APPEND = -Wl,--as-needed
+export PERL_MM_OPT              = INSTALLDIRS="vendor" CCFLAGS="$(dpkg-buildflags --get CFLAGS)" LDDLFLAGS="$(dpkg-buildflags --get LDFLAGS)"
+
+DEB_HOST_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
+DEB_BUILD_GNU_TYPE ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
+
+# Extra version information to add to Cyrus IMAPd ID
+EXTRA_IDENT := Debian-$(DEB_VERSION)
+
+# DB engine version
+export BDB_VERSION ?= $(shell LC_ALL=C dpkg-query -l 'libdb[45].[0-9]-dev' | grep ^ii | sed -e 's|.*\s\libdb\([45]\.[0-9]\)-dev\s.*|\1|')
+DBENGINE := BerkeleyDB$(BDB_VERSION)
+
+CONFFLAGS =
+ifeq ($(DEB_BUILD_GNU_TYPE), $(DEB_HOST_GNU_TYPE))
+  CONFFLAGS += --build $(DEB_HOST_GNU_TYPE)
+else
+  CONFFLAGS += --build $(DEB_BUILD_GNU_TYPE) --host $(DEB_HOST_GNU_TYPE)
+endif
+
+MAN1 := imtest installsieve lmtptest mupdatetest nntptest \
+	pop3test sieveshell sivtest smtptest
+
+MAN8 := master reconstruct quota deliver \
+	mbpath ctl_mboxlist ctl_deliver ctl_cyrusdb squatter \
+	tls_prune ipurge cyrdump cvt_cyrusdb chk_cyrus arbitron \
+	cyr_expire unexpunge sync_client sync_reset cyr_synclog \
+	cyr_dbtool cyr_df ctl_zoneinfo cyr_deny cyr_info \
+	cyr_deny cyr_info fetchnews fud httpd idled imapd \
+	lmtpd mbexamine nntpd notifyd pop3d rmnews smmapd \
+	sync_server timsieved
+
+%:
+	dh $@ --with autoreconf --with autotools-dev --with systemd
+
+override_dh_auto_configure:
+	dh_auto_configure -- \
+	 $(CONFFLAGS) \
+	 --with-extraident=$(EXTRA_IDENT) \
+	 --includedir=/usr/include \
+	 --datadir=/usr/share/cyrus \
+	 --sharedstatedir=/usr/share/cyrus \
+	 --localstatedir=/var/lib/cyrus \
+	 --libexecdir=/usr/lib/cyrus/bin \
+	 --bindir=/usr/lib/cyrus/bin \
+	 --sbindir=/usr/lib/cyrus/bin \
+	 --with-cyrus-prefix=/usr/lib/cyrus \
+	 --disable-silent-rules \
+	 --enable-autocreate \
+	 --enable-idled \
+	 --enable-nntp \
+	 --enable-murder \
+	 --enable-http \
+	 --enable-replication \
+	 --enable-gssapi="/usr" \
+	 --with-cyrus-user=cyrus --with-cyrus-group=mail \
+	 --with-lock=fcntl \
+	 --with-ldap \
+	 --with-krb \
+	 --with-krbimpl=mit \
+	 --without-krbdes \
+	 --with-openssl \
+	 --with-zlib \
+	 --with-libcap \
+	 --with-pidfile=/run/cyrus-master.pid \
+	 --with-com_err \
+	 --with-syslogfacility=MAIL \
+	 --with-gss_impl=mit \
+	 --with-sasl \
+	 --with-perl=/usr/bin/perl \
+	 --with-snmp
+	echo 'To build this package, configure was called as follows:' \
+		> debian/README.configure-options
+	grep '^ac_cs_config=' config.status \
+	| sed -e 's/^ac_cs_config="/configure /;s/"$$//' \
+		>> debian/README.configure-options
+
+override_dh_auto_build:
+	dh_auto_build
+
+# store database configuration for possible automatic
+# upgrading later
+	echo "DBENGINE $(DBENGINE)" >>debian/cyrus-db-types.txt
+	grep '_db"' lib/imapoptions \
+	| cut -d, -f1-2 | sed -e 's/{ "//;s/_db", "/ /;s/"$$//' \
+	| sed -e 's/^tls.* /TLS /;s/^subs.* /SUBS /;s/^seen.* /SEEN /;s/^pts.* /PTS /;s/^mbox.* /MBOX /'\
+	| awk '{printf("%s %s\n",toupper($$1),$$2);}' \
+	>>debian/cyrus-db-types.txt
+	mv debian/cyrus-db-types.txt debian/cyrus-db-types.txt.old \
+	&& sort -u < debian/cyrus-db-types.txt.old > debian/cyrus-db-types.txt \
+	&& rm debian/cyrus-db-types.txt.old
+
+# store some useful state about the current package
+	echo "PACKAGE_VERSION $(DEB_VERSION)" >debian/cyrus-hardwired-config.txt
+	if grep -q -s -n -E '^[[:space:]]*#define[[:space:]]+USE_DIR_FULL[[:space:]]+1' config.h ; then \
+		echo "USE_DIR_FULL 1" >>debian/cyrus-hardwired-config.txt ;\
+	else \
+		echo "USE_DIR_FULL 0" >>debian/cyrus-hardwired-config.txt ;\
+	fi
+
+# former build-indep
+	cd doc &&\
+	pod2man ../perl/sieve/scripts/sieveshell.pl > ../man/sieveshell.1 &&\
+	fig2dev -L png murder.fig murder.png &&\
+	rm -f groff-html-*.png pod2htm*
+	cd doc &&\
+	mkdir -p man &&\
+	for man in ../man/*.[1-9] ../debian/*.[1-9]; do \
+	   echo "Generating html manpage for $$man..."; \
+	   groff -man -Thtml $$man > man/`basename $$man`.html; \
+	done
+	pod2html perl/imap/cyradm.sh > doc/man/cyradm.1.html
+	rm -f pod2htm*
+
+override_dh_auto_install:
+	dh_auto_install # -- DESTDIR=$(TMPPKG)
+
+	# install the cyrus tool
+	install -d -m 755 $(TMPPKG)/usr/sbin
+	install -m 755 debian/cyrus $(TMPPKG)/usr/sbin
+
+	# for stuff in /etc
+	install -d -m 755 $(TMPPKG)/etc/cyrus $(TMPPKG)/etc/pam.d
+	install -m 644 debian/imapd.conf $(TMPPKG)/etc
+	install -m 644 debian/cyrus.conf $(TMPPKG)/etc
+	(cd debian ; for i in *.pam ;\
+		do install -m 644 $$i $(TMPPKG)/etc/pam.d/$${i%.pam} ;\
+	done)
+
+	# Install cyradm icons
+	install -d -m 755 $(TMPPKG)/usr/share/icons/mini
+	install -m 644 debian/cyradm-32x32.xpm $(TMPPKG)/usr/share/icons/cyradm.xpm
+	install -m 644 debian/cyradm-16x16.xpm $(TMPPKG)/usr/share/icons/mini/cyradm.xpm
+
+	# Install debian-provided scripts
+	install -d -m 755 $(TMPPKG)/usr/lib/cyrus/bin/
+	install debian/cyrus-makedirs $(TMPPKG)/usr/lib/cyrus/bin/makedirs
+	install -m 755 debian/cyrus-upgrade-db $(TMPPKG)/usr/lib/cyrus/bin/upgrade-db
+	install -m 644 debian/get-backtrace.gdb $(TMPPKG)/usr/lib/cyrus/get-backtrace.gdb
+
+	# and logcheck files
+	install -d -m 755 $(TMPPKG)/etc/logcheck/ignore.d.server/ $(TMPPKG)/etc/logcheck/violations.ignore.d/
+	install -m 644 debian/logcheck.ignore $(TMPPKG)/etc/logcheck/ignore.d.server/cyrus-imapd
+	install -m 644 debian/logcheck.violations.ignore $(TMPPKG)/etc/logcheck/violations.ignore.d/cyrus-imapd
+
+	# And other upgrade helpers
+	install -m 644 debian/cyrus-db-types.txt debian/cyrus-hardwired-config.txt \
+		   $(TMPPKG)/usr/lib/cyrus
+
+	# Move all manpages under cyrus- namespace
+	install -m 644 debian/cyrus-makedirs.8 debian/cyrus-arbitronsort.8 debian/cyrus-dump.8 \
+		$(TMPPKG)/usr/share/man/man8/
+
+	# Prefix all manpages for cyrus binaries to cyrus-$1
+	for i in $(MAN1); do \
+	  mv $(TMPPKG)/usr/share/man/man1/$$i.1 $(TMPPKG)/usr/share/man/man1/cyrus-$$i.1; \
+	done
+
+	for i in $(MAN8); do \
+	  mv $(TMPPKG)/usr/share/man/man8/$$i.8 $(TMPPKG)/usr/share/man/man8/cyrus-$${i}.8 ; \
+	done
+
+	# SNMP files
+	install -d -m 755 $(TMPPKG)/usr/share/snmp/mibs
+	install -m 644 master/CYRUS-MASTER.mib $(TMPPKG)/usr/share/snmp/mibs/CYRUS-MASTER-MIB.txt
+
+	# Install the stuff needed for upgrades
+	install -d -m 755 $(TMPPKG)/usr/lib/cyrus/upgrade
+	for i in convert-sieve.pl dohash rehash undohash translatesieve upgradesieve masssievec; do \
+	  install -m 755 tools/$$i $(TMPPKG)/usr/lib/cyrus/upgrade ;\
+	done
+
+	# And other misc useful tools
+	install -m 755 tools/arbitronsort.pl $(TMPPKG)/usr/lib/cyrus/bin/arbitronsort
+
+	# Install the html docs and examples
+	install -d -m 755 $(DOCDIR)/html
+	install -m 644 doc/*.html doc/murder.png $(DOCDIR)/html
+	cp -a doc/man $(DOCDIR)/html
+	cp -a debian/examples $(DOCDIR)
+	install -m 644 doc/cyrusv2.mc $(DOCDIR)/examples
+	#
+	# Install contrib/ files
+	install -d -m 755 $(DOCDIR)/contrib
+	xargs < debian/cyrus-common.contrib -rti cp -r '{}' $(DOCDIR)/contrib
+
+override_dh_installinit:
+	dh_installinit -p cyrus-common --name=cyrus-imapd
+
+override_dh_installchangelogs:
+	dh_installchangelogs \
+	  -p cyrus-common -p cyrus-doc -p cyrus-clients \
+	  -p cyrus-admin -p libcyrus-imap-perl -p cyrus-imapd \
+	  -p cyrus-pop3d -p cyrus-murder -p cyrus-replication \
+	  -p cyrus-nntpd -p cyrus-caldav -p cyrus-dev \
+	  doc/changes.html
+	dh_installchangelogs --remaining-packages
+
+override_dh_installcron:
+	dh_installcron --name=cyrus-imapd
+
+override_dh_install:
+	dh_install --fail-missing -X.la

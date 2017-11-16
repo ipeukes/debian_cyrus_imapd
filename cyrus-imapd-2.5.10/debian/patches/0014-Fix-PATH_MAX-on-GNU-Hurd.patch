@@ -1,0 +1,55 @@
+From: =?utf-8?q?Ond=C5=99ej_Sur=C3=BD?= <ondrej@debian.org>
+Date: Tue, 4 Aug 2015 10:38:07 +0200
+Subject: Fix PATH_MAX on GNU/Hurd
+
+---
+ imap/pop3d.c     | 4 ++++
+ master/master.c  | 4 ++++
+ master/service.c | 4 ++++
+ 3 files changed, 12 insertions(+)
+
+diff --git a/imap/pop3d.c b/imap/pop3d.c
+index ebe4db3..ce93526 100644
+--- a/imap/pop3d.c
++++ b/imap/pop3d.c
+@@ -98,6 +98,10 @@
+ #define MAXHOSTNAMELEN 256
+ #endif
+ 
++#ifndef MAXHOSTNAMELEN
++#define MAXHOSTNAMELEN
++#endif
++
+ #ifdef HAVE_KRB
+ /* kerberos des is purported to conflict with OpenSSL DES */
+ #define DES_DEFS
+diff --git a/master/master.c b/master/master.c
+index cddebf1..5eaa843 100644
+--- a/master/master.c
++++ b/master/master.c
+@@ -75,6 +75,10 @@
+ #define PATH_MAX 4096
+ #endif
+ 
++#ifndef PATH_MAX
++#define PATH_MAX 4096
++#endif
++
+ #ifndef INADDR_NONE
+ #define INADDR_NONE 0xffffffff
+ #endif
+diff --git a/master/service.c b/master/service.c
+index 9871d5e..14f10db 100644
+--- a/master/service.c
++++ b/master/service.c
+@@ -76,6 +76,10 @@
+ #define PATH_MAX 4096
+ #endif
+ 
++#ifndef PATH_MAX
++#define PATH_MAX 4096
++#endif
++
+ extern int optind, opterr;
+ extern char *optarg;
+ 

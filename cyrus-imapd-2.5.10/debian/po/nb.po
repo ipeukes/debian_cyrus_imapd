@@ -1,0 +1,47 @@
+# translation of nb.po to Norwegian Bokmål
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+#
+# Bjørn Steensrud <bjornst@skogkatt.homelinux.org>, 2008, 2009.
+msgid ""
+msgstr ""
+"Project-Id-Version: nb\n"
+"Report-Msgid-Bugs-To: cyrus-imapd@packages.debian.org\n"
+"POT-Creation-Date: 2011-04-11 15:24+0200\n"
+"PO-Revision-Date: 2009-04-30 02:18+0200\n"
+"Last-Translator: Bjørn Steensrud <bjornst@skogkatt.homelinux.org>\n"
+"Language-Team: Norwegian Bokmål <i18n-nb@lister.ping.uio.no>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Lokalize 0.3\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. Type: boolean
+#. Description
+#: ../cyrus-common.templates:1001
+msgid "Remove the mail and news spools?"
+msgstr "Skal e-postlager og njuslagre fjernes?"
+
+#. Type: boolean
+#. Description
+#: ../cyrus-common.templates:1001
+msgid ""
+"The Cyrus mail and news spools, as well as users' sieve scripts, can be "
+"removed when the package is purged."
+msgstr ""
+"E-postlageret og njuslagrene til Cyrus, og også brukernes sieve-skripter, "
+"kan fjernes når pakka fjernes fullstendig."
+
+#. Type: boolean
+#. Description
+#: ../cyrus-common.templates:1001
+msgid ""
+"This question only applies to the default spools and sieve script "
+"directories in /var.  If you modified their location in imapd.conf, the new "
+"locations will not be removed; just the old ones in /var."
+msgstr ""
+"Dette spørsmålet gjelder bare standard lagre og sieve-skripter i mapper "
+"under /var.  Hvis de er gitt nye adresser i imapd.conf, så blir ikke de nye "
+"stedene ryddet, bare de gamle i /var."

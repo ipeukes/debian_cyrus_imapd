@@ -1,0 +1,33 @@
+This is the Carnegie Mellon University Cyrus IMAP Server.
+
+The 2.5 series contains numerous features and better standards
+support than previous versions.
+
+No further development work will progress on anything older than
+version 2.2.  Versions 2.2 and 2.3 still receive security updates,
+but new features or non-security bugfixes are unlikely to be
+backported.
+
+If you continue to install this software PLEASE be sure to read the
+documentation (located in the doc/ subdirectory).  Many common questions
+can be answered just by carefully following the documentation.
+Please also refer to http://bugzilla.cyrusimap.org for any outstanding bugs.
+
+Note that CMU only provides a source distribution. If you run into
+problems with any binary distribution, please contact the source of
+the binary distribution.
+
+----------------------------------------------------------------------
+* For the real README file, please see doc/readme.html.
+
+* To install the software, please read doc/install.html (but please 
+  read doc/readme.html first!).
+
+* To see the changes since previous versions, check doc/changes.html,
+  and if upgrading look at doc/install-upgrade.html as well.
+
+* To obtain updates to this software, visit the web page
+            http://www.cyrusimap.org/
+  or ftp directly from
+            ftp://ftp.cyrusimap.org/cyrus-imapd/
+

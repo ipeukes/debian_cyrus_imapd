@@ -1,0 +1,10 @@
+Template: cyrus-common/removespools
+Type: boolean
+Default: false
+_Description: Remove the mail and news spools?
+ The Cyrus mail and news spools, as well as users' sieve scripts,
+ can be removed when the package is purged.
+ .
+ This question only applies to the default spools and sieve script
+ directories in /var.  If you modified their location in imapd.conf, the
+ new locations will not be removed; just the old ones in /var.

@@ -1,0 +1,49 @@
+# French translation for cyrus-imapd.
+# Copyright (C) 2009 Debian French l10n team <debian-l10n-french@lists.debian.org>
+# This file is distributed under the same license as the cyrus-imapd package.
+#
+# Translators:
+# Philippe Batailler <philippe.batailler@free.fr>, 2009
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: cyrus-imapd 2.4.8-1\n"
+"Report-Msgid-Bugs-To: cyrus-imapd@packages.debian.org\n"
+"POT-Creation-Date: 2011-04-11 15:24+0200\n"
+"PO-Revision-Date: 2009-04-16 20:31+0200\n"
+"Last-Translator: Philippe Batailler <philippe.batailler@free.fr>\n"
+"Language-Team: French <debian-l10n-french@lists.debian.org>\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. Type: boolean
+#. Description
+#: ../cyrus-common.templates:1001
+msgid "Remove the mail and news spools?"
+msgstr ""
+"Faut-il supprimer les répertoires contenant les courriers et les nouvelles ?"
+
+#. Type: boolean
+#. Description
+#: ../cyrus-common.templates:1001
+msgid ""
+"The Cyrus mail and news spools, as well as users' sieve scripts, can be "
+"removed when the package is purged."
+msgstr ""
+"Les répertoires stockant le courrier et les nouvelles, ainsi que les filtres "
+"sieve des utilisateurs, peuvent être supprimés en même temps que le paquet."
+
+#. Type: boolean
+#. Description
+#: ../cyrus-common.templates:1001
+msgid ""
+"This question only applies to the default spools and sieve script "
+"directories in /var.  If you modified their location in imapd.conf, the new "
+"locations will not be removed; just the old ones in /var."
+msgstr ""
+"Cette question concerne uniquement les répertoires par défaut situés dans /"
+"var et contenant le « spool » et les filtres sieve. Si vous aviez modifié "
+"leurs emplacements grâce au fichier imapd.conf, ils ne seront pas "
+"supprimés ; seuls les anciens, dans /var, le seront."

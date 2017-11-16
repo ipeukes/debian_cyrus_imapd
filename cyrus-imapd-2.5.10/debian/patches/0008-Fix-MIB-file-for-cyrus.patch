@@ -1,0 +1,32 @@
+From: Sven Mueller <debian@incase.de>
+Date: Tue, 4 Aug 2015 10:38:05 +0200
+Subject: Fix MIB file for cyrus
+
+---
+ master/CYRUS-MASTER.mib | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/master/CYRUS-MASTER.mib b/master/CYRUS-MASTER.mib
+index 5063eed..9fc3d3d 100644
+--- a/master/CYRUS-MASTER.mib
++++ b/master/CYRUS-MASTER.mib
+@@ -1,12 +1,15 @@
+ CYRUS-MASTER-MIB DEFINITIONS ::= BEGIN
+ 
+ IMPORTS
+-    MODULE-IDENTITY, OBJECT-TYPE, Counter32
++    MODULE-IDENTITY, OBJECT-TYPE, Counter32, enterprises
+         FROM SNMPv2-SMI
+     DisplayString
+-        FROM SNMPv2-TC
+-    cmuCyrus
+-        FROM CMU-MIB;
++        FROM SNMPv2-TC;
++--    cmuCyrus
++--        FROM CMU-MIB;
++
++cmuMIB         OBJECT IDENTIFIER ::= { enterprises 3 }
++cmuCyrus       OBJECT IDENTIFIER ::= { cmuMIB 6 }
+ 
+ cyrusMasterMIB MODULE-IDENTITY
+     LAST-UPDATED "0010312300Z"		-- 2000 Oct 31

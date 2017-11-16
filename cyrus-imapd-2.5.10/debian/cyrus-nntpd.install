@@ -1,0 +1,6 @@
+etc/pam.d/nntp
+usr/lib/cyrus/bin/fetchnews
+usr/lib/cyrus/bin/nntpd
+usr/share/man/man8/cyrus-fetchnews.8
+usr/share/man/man8/cyrus-nntpd.8
+usr/share/man/man8/cyrus-rmnews.8
