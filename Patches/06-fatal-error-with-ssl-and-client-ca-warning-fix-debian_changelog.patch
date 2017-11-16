@@ -1,6 +1,6 @@
 --- cyrus-imapd-2.5.10/debian/changelog.org	2017-11-16 12:09:36.844527092 +0100
 +++ cyrus-imapd-2.5.10/debian/changelog	2017-11-16 12:10:48.722586840 +0100
-@@ -1,3 +1,12 @@
+@@ -1,3 +1,14 @@
 +cyrus-imapd (2.5.10-3+ipeukes1) unstable; urgency=medium
 +
 +  * Non-maintainer upload.
@@ -9,6 +9,8 @@
 +    Additionaly removed the "TLS server engine: No client CA certs specified.
 +    Client side certs may not work" message which is filling up the log when
 +    using TLS without client certs
++
++ -- Ingo Peukes <dev@ipnetwork.de>  Thu, 16 Nov 2017 10:23:31 +0100
 +
  cyrus-imapd (2.5.10-3+cascardo1) unstable; urgency=medium
  
