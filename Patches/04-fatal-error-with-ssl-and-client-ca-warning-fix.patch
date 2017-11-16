@@ -1,0 +1,46 @@
+--- cyrus-imapd-2.5.10/debian/patches/0020-fatal-error-with-ssl-and-client-ca-warning-fix.patch	2017-11-15 21:31:00.052000000 +0100
++++ cyrus-imapd-2.5.10/debian/patches/0020-fatal-error-with-ssl-and-client-ca-warning-fix.patch	2017-11-16 09:34:03.396531943 +0100
+@@ -0,0 +1,43 @@
++--- cyrus-imapd-2.5.10/imap/tls.c	2016-10-17 23:01:04.000000000 +0200
+++++ tls.c	2017-11-16 09:28:35.535087846 +0100
++@@ -518,11 +518,13 @@
++ 	/* store the session in our database */
++ 
++ 	session_id = SSL_SESSION_get_id(sess, &session_id_length);
++-	do {
++-	    ret = cyrusdb_store(sessdb, (const char *) session_id,
++-			    session_id_length,
+++    if (session_id_length) {
+++	  do {
+++	      ret = cyrusdb_store(sessdb, (const char *) session_id,
+++		  	    session_id_length,
++ 			    (const char *) data, len + sizeof(time_t), NULL);
++-	} while (ret == CYRUSDB_AGAIN);
+++	  } while (ret == CYRUSDB_AGAIN);
+++     }
++     }
++ 
++     free(data);
++@@ -551,6 +553,7 @@
++     assert(id);
++     assert(idlen <= SSL_MAX_SSL_SESSION_ID_LENGTH);
++     
+++    if (!idlen) return;
++     if (!sess_dbopen) return;
++ 
++     do {
++@@ -907,13 +910,7 @@
++     } else {
++ 	STACK_OF(X509_NAME) *CAnames = SSL_load_client_CA_file(client_ca_file);
++ 
++-	if (!CAnames || sk_X509_NAME_num(CAnames) < 1) {
++-	    syslog(
++-		    LOG_ERR,
++-		    "TLS server engine: No client CA certs specified. Client side certs may not work"
++-		);
++-
++-	} else {
+++	if (CAnames && sk_X509_NAME_num(CAnames) > 0 ) {
++ 	    if (askcert || tls_client_certs)
++ 		verify_flags = SSL_VERIFY_PEER | SSL_VERIFY_CLIENT_ONCE;
++ 

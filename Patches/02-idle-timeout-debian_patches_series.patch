@@ -1,0 +1,7 @@
+--- cyrus-imapd-2.5.10/debian/patches/series	2016-12-07 08:23:20.000000000 -0200
++++ cyrus-imapd-2.5.10/debian/patches/series	2017-10-25 15:03:17.000000000 -0200
+@@ -16,3 +16,4 @@
+ 0016-Use-UnicodeData.txt-from-system.patch
+ 0017-libisieve-has-to-be-noinst_LTLIBRARY-for-PIC-code-to.patch
+ 0018-Replace-struct-sched_param-with-struct-caldav_sched_.patch
++0019-imapoptions-implement-idle-timeout.patch

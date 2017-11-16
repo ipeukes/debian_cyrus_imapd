@@ -1,0 +1,7 @@
+--- cyrus-imapd-2.5.10/debian/patches/series	2017-11-16 09:10:13.023421904 +0100
++++ cyrus-imapd-2.5.10/debian/patches/series 	2017-11-16 09:41:25.249238579 +0100
+@@ -17,3 +17,4 @@
+ 0017-libisieve-has-to-be-noinst_LTLIBRARY-for-PIC-code-to.patch
+ 0018-Replace-struct-sched_param-with-struct-caldav_sched_.patch
+ 0019-imapoptions-implement-idle-timeout.patch
++0020-fatal-error-with-ssl-and-client-ca-warning-fix.patch

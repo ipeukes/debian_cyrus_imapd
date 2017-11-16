@@ -1,0 +1,12 @@
+--- cyrus-imapd-2.5.10/debian/changelog	2016-12-07 08:23:20.000000000 -0200
++++ cyrus-imapd-2.5.10/debian/changelog	2017-10-25 15:03:52.000000000 -0200
+@@ -1,3 +1,9 @@
++cyrus-imapd (2.5.10-3+cascardo1) unstable; urgency=medium
++
++  * imapd.c: imapoptions: implement idle timeout (Closes: #879007)
++
++ -- Thadeu Lima de Souza Cascardo <cascardo@debian.org>  Wed, 25 Oct 2017 15:03:52 -0200
++
+ cyrus-imapd (2.5.10-3) unstable; urgency=medium
+ 
+   * Rely on default tls_ciphers and tls_versions configurations

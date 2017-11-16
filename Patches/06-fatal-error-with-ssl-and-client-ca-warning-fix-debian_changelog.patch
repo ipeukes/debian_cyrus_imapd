@@ -1,0 +1,17 @@
+--- cyrus-imapd-2.5.10/debian/changelog	2017-11-16 10:35:17.158122446 +0100
++++ cyrus-imapd-2.5.10/debian/changelog	2017-11-16 10:57:50.897181366 +0100
+@@ -1,14 +1,3 @@
+-cyrus-imapd (2.5.10-3+ipeukes1) UNRELEASED; urgency=medium
+-
+-  * Non-maintainer upload.
+-  * Fix for bug #863520 - cyrus-imapd version 2.5.10-3 Fatal error with SSL
+-    https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=863520
+-    Additionaly removed the "TLS server engine: No client CA certs specified.
+-    Client side certs may not work" message which is filling up the log when
+-    using TLS without client certs
+-
+- -- Ingo Peukes <dev@ipnetwork.de>  Thu, 16 Nov 2017 10:32:21 +0100
+-
+ cyrus-imapd (2.5.10-3+cascardo1) unstable; urgency=medium
+ 
+   * imapd.c: imapoptions: implement idle timeout (Closes: #879007)

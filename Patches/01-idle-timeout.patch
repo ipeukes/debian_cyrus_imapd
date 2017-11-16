@@ -1,0 +1,180 @@
+--- cyrus-imapd-2.5.10/debian/patches/0019-imapoptions-implement-idle-timeout.patch	1969-12-31 21:00:00.000000000 -0300
++++ cyrus-imapd-2.5.10/debian/patches/0019-imapoptions-implement-idle-timeout.patch	2017-10-25 15:02:53.000000000 -0200
+@@ -0,0 +1,177 @@
++commit 865199dce1291c612c5b5f3f5957b7800ba863b9
++Author: Philipp Gesang <philipp.gesang@intra2net.com>
++Date:   Wed Sep 21 17:26:40 2016 +0200
++
++    imapd.c: imapoptions: implement idle timeout
++    
++    Use the value of the configuration variable "timeout" as an upper
++    limit in minutes for idle connections. To allow further
++    customization, add a new configuration option "imapidletimeout"
++    which, if greater than zero, will be used instead. The value
++    defaults to zero (not set).
++    
++    RFC 2177 recommends that a client re-issue the IDLE command at
++    least every 29 minutes if it wishes to continue, otherwise the
++    server is free to treat the client as disconnected.
++    
++    The rationale is that sometimes connections aren't properly
++    reset. Currently, a connection is not collected if it was in IDLE
++    state at that point. If this happens repeatedly, imapd keeps
++    accumulating dead connections which can cause DOS. This patch
++    solves the problem by forcing imapd to stop idling after
++    exceeding the configured timeout.
++
++diff --git a/imap/imapd.c b/imap/imapd.c
++index ea218964c..90621b808 100644
++--- a/imap/imapd.c
+++++ b/imap/imapd.c
++@@ -58,6 +58,9 @@
++ #include <sys/wait.h>
++ #include <netinet/in.h>
++ #include <arpa/inet.h>
+++#include <time.h>
+++#include <stdbool.h>
+++#include <errno.h>
++ 
++ #include <sasl/sasl.h>
++ 
++@@ -2858,6 +2861,25 @@ static void cmd_id(char *tag)
++     imapd_id.did_id = 1;
++ }
++ 
+++static bool deadline_exceeded(const struct timespec *d)
+++{
+++    struct timespec now;
+++
+++    if (d->tv_sec <= 0) {
+++	/* No deadline configured */
+++	return false;
+++    }
+++
+++    errno = 0;
+++    if (clock_gettime(CLOCK_MONOTONIC, &now) == -1) {
+++	syslog(LOG_ERR, "clock_gettime (%d %m): error reading clock", errno);
+++	return false;
+++    }
+++
+++    return now.tv_sec > d->tv_sec ||
+++	    (now.tv_sec == d->tv_sec && now.tv_nsec > d->tv_nsec);
+++}
+++
++ /*
++  * Perform an IDLE command
++  */
++@@ -2867,6 +2889,26 @@ static void cmd_idle(char *tag)
++     int flags;
++     static struct buf arg;
++     static int idle_period = -1;
+++    static time_t idle_timeout = -1;
+++    struct timespec deadline = { 0, 0 };
+++
+++    if (idle_timeout == -1) {
+++	idle_timeout = config_getint(IMAPOPT_IMAPIDLETIMEOUT);
+++	if (idle_timeout <= 0) {
+++	    idle_timeout = config_getint(IMAPOPT_TIMEOUT);
+++	}
+++	idle_timeout *= 60; /* unit is minutes */
+++    }
+++
+++    if (idle_timeout > 0) {
+++	errno = 0;
+++	if (clock_gettime(CLOCK_MONOTONIC, &deadline) == -1) {
+++	    syslog(LOG_ERR, "clock_gettime (%d %m): error reading clock",
+++		errno);
+++	} else {
+++	    deadline.tv_sec += idle_timeout;
+++	}
+++    }
++ 
++     if (!backend_current) {  /* Local mailbox */
++ 
++@@ -2883,6 +2925,13 @@ static void cmd_idle(char *tag)
++ 
++ 	index_release(imapd_index);
++ 	while ((flags = idle_wait(imapd_in->fd))) {
+++	    if (deadline_exceeded(&deadline)) {
+++		syslog(LOG_DEBUG, "timeout for user '%s' while idling",
+++		    imapd_userid);
+++		shut_down(0);
+++		break;
+++	    }
+++
++ 	    if (flags & IDLE_INPUT) {
++ 		/* Get continuation data */
++ 		c = getword(imapd_in, &arg);
++@@ -2915,7 +2964,8 @@ static void cmd_idle(char *tag)
++ 	idle_stop(index_mboxname(imapd_index));
++     }
++     else {  /* Remote mailbox */
++-	int done = 0, shutdown = 0;
+++	int done = 0;
+++	enum { shutdown_skip, shutdown_bye, shutdown_silent } shutdown = shutdown_skip;
++ 	char buf[2048];
++ 
++ 	/* get polling period */
++@@ -2947,6 +2997,14 @@ static void cmd_idle(char *tag)
++ 
++ 	/* Pipe updates to client while waiting for end of command */
++ 	while (!done) {
+++	    if (deadline_exceeded(&deadline)) {
+++		syslog(LOG_DEBUG,
+++		    "timeout for user '%s' while idling on remote mailbox",
+++		    imapd_userid);
+++		shutdown = shutdown_silent;
+++		goto done;
+++	    }
+++
++ 	    /* Flush any buffered output */
++ 	    prot_flush(imapd_out);
++ 
++@@ -2955,7 +3013,8 @@ static void cmd_idle(char *tag)
++ 		(shutdown_file(buf, sizeof(buf)) ||
++ 		 (imapd_userid && 
++ 		  userdeny(imapd_userid, config_ident, buf, sizeof(buf))))) {
++-		shutdown = done = 1;
+++		done = 1;
+++		shutdown = shutdown_bye;
++ 		goto done;
++ 	    }
++ 
++@@ -2979,12 +3038,20 @@ static void cmd_idle(char *tag)
++ 	    pipe_until_tag(backend_current, tag, 0);
++ 	}
++ 
++-	if (shutdown) {
+++	switch (shutdown) {
+++	case shutdown_bye:
+++	    ;
++ 	    char *p;
++ 
++ 	    for (p = buf; *p == '['; p++); /* can't have [ be first char */
++ 	    prot_printf(imapd_out, "* BYE [ALERT] %s\r\n", p);
+++	    /* fallthrough */
+++	case shutdown_silent:
++ 	    shut_down(0);
+++	    break;
+++	case shutdown_skip:
+++	default:
+++	    break;
++ 	}
++     }
++ 
++diff --git a/lib/imapoptions b/lib/imapoptions
++index dd78d19d1..e4fc3ae88 100644
++--- a/lib/imapoptions
+++++ b/lib/imapoptions
++@@ -1871,6 +1871,11 @@ product version in the capabilities */
++ /* The length of the IMAP server's inactivity autologout timer,
++    in minutes.  The minimum value is 30, the default. */
++ 
+++{ "imapidletimeout", 0, INT }
+++/* Timeout for idling clients (RFC 2177) in minutes. If set to
+++   zero (the default) or less, the value of "timeout" will be
+++   used instead. */
+++
++ { "tls_ca_file", "DEFAULT", STRING }
++ /* Deprecated in favor of \fItls_client_ca_file\fR. */
++ 
